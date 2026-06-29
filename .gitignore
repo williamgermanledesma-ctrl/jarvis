@@ -1,0 +1,29 @@
+# Secrets — never commit
+.env
+mcp_servers.json
+jarviskey
+jarviskey.pub
+*.pem
+id_ed25519
+id_ed25519.pub
+
+# Generated / runtime data
+memory_store/
+projects/
+conversations/
+uploads/
+config_profile.txt
+jarvis_audit.log
+
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

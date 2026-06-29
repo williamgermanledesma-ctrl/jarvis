@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jarvis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tiempos:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #1F1E1D;
+    --bg-deep:   #181716;
+    --surface:   #262524;
+    --surface-2: #2E2D2B;
+    --sidebar:   #1A1918;
+    --ink:       #F2EFE9;
+    --ink-soft:  #D6D2CA;
+    --muted:     #908B82;
+    --faint:     #6C675F;
+    --line:      #36342F;
+    --line-soft: #2B2A27;
+    --accent:    #C96442;   /* Claude terracotta */
+    --accent-ink:#D67B5C;
+    --green:     #5FA67E;
+    --amber:     #D2A24C;
+    --red:       #D26B53;
+    --radius:    16px;
+    --radius-sm: 11px;
+    --serif: "Source Serif 4", "Tiempos", Georgia, "Times New Roman", serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    display: flex; height: 100vh; overflow: hidden;
+  }
+  button { font-family: inherit; cursor: pointer; color: inherit; }
+  .serif { font-family: var(--serif); }
+
+  /* ---------------- Sidebar ---------------- */
+  #sidebar {
+    width: 268px; flex: none; background: var(--sidebar);
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; transition: margin-left .22s ease;
+  }
+  #sidebar.collapsed { margin-left: -268px; }
+  .brand { padding: 20px 20px 8px; }
+  .brand .name { font-family: var(--serif); font-size: 26px; font-weight: 500; letter-spacing: -0.01em; }
+
+  .nav { padding: 8px 10px; display: flex; flex-direction: column; gap: 1px; }
+  .nav-item {
+    text-align: left; background: none; border: none;
+    padding: 9px 12px; border-radius: 10px; font-size: 14.5px; color: var(--ink-soft);
+    display: flex; align-items: center; gap: 12px; transition: background .12s;
+  }
+  .nav-item:hover { background: var(--surface); }
+  .nav-item.active { background: var(--surface); color: var(--ink); }
+  .nav-item .ico { width: 18px; text-align: center; opacity: .8; font-size: 15px; }
+
+  .divider { height: 1px; background: var(--line); margin: 8px 16px; }
+
+  .side-group { padding: 4px 10px; overflow-y: auto; }
+  .side-head {
+    font-size: 12px; color: var(--muted); font-weight: 600;
+    padding: 8px 12px 6px; letter-spacing: .01em;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .side-head button { background: none; border: none; color: var(--muted); font-size: 16px; padding: 0 4px; border-radius: 5px; }
+  .side-head button:hover { color: var(--accent); }
+  .side-item {
+    text-align: left; background: none; border: none; width: 100%;
+    padding: 8px 12px; border-radius: 9px; font-size: 14px; color: var(--ink-soft);
+    display: flex; align-items: center; gap: 10px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background .12s;
+  }
+  .side-item:hover { background: var(--surface); }
+  .side-item.active { background: var(--surface); color: var(--ink); }
+  .side-item .ico { opacity: .7; flex: none; }
+  .side-item .meta { margin-left: auto; font-size: 11px; color: var(--faint); }
+
+  .sidebar-foot {
+    margin-top: auto; padding: 14px 16px; border-top: 1px solid var(--line);
+    display: flex; align-items: center; gap: 11px;
+  }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: #6B5CE0; color: #fff; display: grid; place-items: center;
+    font-size: 12px; font-weight: 700; flex: none;
+  }
+  .sidebar-foot .who { font-size: 13.5px; font-weight: 500; }
+  .sidebar-foot .sub { font-size: 11.5px; color: var(--muted); }
+
+  /* ---------------- Main ---------------- */
+  #main { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+  .topbar {
+    height: 56px; flex: none; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 10px; padding: 0 16px;
+  }
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 10px; border: none; background: none;
+    color: var(--muted); font-size: 17px; display: grid; place-items: center; transition: background .12s, color .12s;
+  }
+  .icon-btn:hover { background: var(--surface); color: var(--ink); }
+  .topbar .title { font-weight: 600; font-size: 15px; }
+  .topbar .title small { color: var(--muted); font-weight: 400; margin-left: 8px; font-size: 12px; }
+  .topbar .spacer { flex: 1; }
+  .seg { display: flex; background: var(--bg-deep); border-radius: 10px; padding: 3px; }
+  .seg button { border: none; background: none; color: var(--muted); font-size: 12.5px; font-weight: 500; padding: 5px 12px; border-radius: 8px; }
+  .seg button.on { background: var(--surface-2); color: var(--ink); }
+  .topbar select { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 6px 10px; font-size: 12.5px; color: var(--ink); font-family: inherit; }
+  .topbar select:focus { outline: none; border-color: var(--accent); }
+
+  .view { flex: 1; min-height: 0; display: none; flex-direction: column; }
+  .view.active { display: flex; }
+
+  /* ---------------- Chat view ---------------- */
+  #log { flex: 1; overflow-y: auto; padding: 26px 0 12px; display: flex; flex-direction: column; align-items: center; }
+  .stream { width: 100%; max-width: 720px; padding: 0 24px; display: flex; flex-direction: column; gap: 22px; }
+  #greeting { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 10px; padding: 40px 24px; }
+  #greeting .hi { font-family: var(--serif); font-size: 34px; font-weight: 500; letter-spacing: -0.01em; }
+  #greeting .sub { color: var(--muted); font-size: 15px; max-width: 460px; }
+  .suggestions { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; margin-top: 20px; max-width: 560px; }
+  .chip { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 9px 15px; font-size: 13px; color: var(--ink-soft); transition: border-color .15s, background .15s; }
+  .chip:hover { border-color: var(--accent); color: var(--ink); }
+
+  .msg { display: flex; flex-direction: column; gap: 6px; }
+  .msg .role { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--faint); font-weight: 600; }
+  .msg.user { align-items: flex-end; }
+  .msg.user .bubble { background: var(--surface-2); color: var(--ink); padding: 11px 15px; border-radius: 17px 17px 5px 17px; max-width: 85%; white-space: pre-wrap; word-wrap: break-word; }
+  .msg.assistant .bubble { color: var(--ink); white-space: pre-wrap; word-wrap: break-word; font-size: 15.5px; line-height: 1.6; }
+  .msg.tool .bubble { font-family: var(--mono); font-size: 12px; color: var(--muted); background: var(--bg-deep); border-radius: 9px; padding: 8px 12px; white-space: pre-wrap; border-left: 2px solid var(--line); }
+
+  .approve { border: 1px solid var(--red); background: rgba(210,107,83,.08); border-radius: var(--radius); padding: 15px; }
+  .approve .head { color: var(--red); font-weight: 600; font-size: 13px; margin-bottom: 8px; }
+  .approve code { display: block; font-family: var(--mono); font-size: 12.5px; color: var(--ink); background: var(--bg-deep); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; margin-bottom: 12px; white-space: pre-wrap; word-break: break-all; }
+  .approve .btns { display: flex; gap: 9px; }
+  .approve button { border-radius: 10px; padding: 8px 16px; font-size: 13px; font-weight: 500; border: 1px solid var(--line); background: var(--surface); }
+  .approve button.yes { background: var(--green); border-color: var(--green); color: #14271C; }
+  .approve button.no { color: var(--red); border-color: var(--red); }
+  .approve button:disabled { opacity: .45; }
+  .diff { font-family: var(--mono); font-size: 12px; line-height: 1.5; background: var(--bg-deep); border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; margin-bottom: 12px; max-height: 320px; overflow: auto; }
+  .diff div { white-space: pre-wrap; word-break: break-all; padding: 0 4px; }
+  .diff-add { background: rgba(95,166,126,.15); color: #8FD4AC; }
+  .diff-del { background: rgba(210,107,83,.15); color: #E89279; }
+  .diff-hunk { color: var(--accent-ink); }
+  .diff-file { color: var(--faint); }
+  .diff-ctx { color: var(--ink-soft); }
+
+  .composer-wrap { width: 100%; display: flex; justify-content: center; padding: 8px 24px 22px; }
+  .composer { width: 100%; max-width: 720px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 10px 10px 10px 18px; transition: border-color .15s; }
+  .composer:focus-within { border-color: var(--accent); }
+  .presence { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); padding: 0 2px 7px; }
+  .presence .pdot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .presence.idle .pdot { background: var(--green); }
+  .presence.think .pdot { background: var(--accent); animation: pulse 1s infinite; }
+  .presence.run .pdot { background: var(--amber); animation: pulse .7s infinite; }
+  .presence.await .pdot { background: var(--red); animation: pulse .6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .composer-row { display: flex; align-items: flex-end; gap: 7px; }
+  #input { flex: 1; border: none; background: none; resize: none; font-family: inherit; font-size: 15px; color: var(--ink); padding: 6px 0; max-height: 160px; line-height: 1.5; }
+  #input:focus { outline: none; }
+  #input::placeholder { color: var(--faint); }
+  .comp-btn { width: 37px; height: 37px; border-radius: 50%; border: none; background: var(--surface-2); color: var(--muted); font-size: 16px; display: grid; place-items: center; flex: none; transition: background .12s, color .12s; }
+  .comp-btn:hover { background: var(--line); color: var(--ink); }
+  #mic.on { background: var(--red); color: #fff; animation: pulse .9s infinite; }
+  #send { background: var(--accent); color: #fff; }
+  #send:hover { background: var(--accent-ink); }
+  .hint { text-align: center; font-size: 11.5px; color: var(--faint); padding: 0 0 10px; }
+
+  /* ---------------- Projects list view ---------------- */
+  .page { flex: 1; overflow-y: auto; }
+  .page-inner { max-width: 720px; margin: 0 auto; padding: 28px 24px 60px; }
+  .page-title { font-family: var(--serif); font-size: 38px; font-weight: 500; letter-spacing: -0.01em; margin: 4px 0 18px; }
+  .search-big { width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 13px 18px 13px 44px; font-size: 15px; color: var(--ink); position: relative; }
+  .search-big:focus { outline: none; border-color: var(--accent); }
+  .search-row { position: relative; margin-bottom: 22px; }
+  .search-row::before { content: "⌕"; position: absolute; left: 18px; top: 50%; transform: translateY(-50%); color: var(--faint); font-size: 18px; }
+  .proj-row { padding: 16px 4px; border-bottom: 1px solid var(--line-soft); cursor: pointer; }
+  .proj-row:hover .pname { color: var(--accent-ink); }
+  .proj-row .pname { font-family: var(--serif); font-size: 22px; font-weight: 500; }
+  .proj-row .pmeta { font-size: 13px; color: var(--muted); margin-top: 3px; }
+
+  /* ---------------- Project detail view ---------------- */
+  .detail-title { font-family: var(--serif); font-size: 36px; font-weight: 500; margin: 6px 0 14px; }
+  .detail-desc { color: var(--ink-soft); font-size: 15.5px; line-height: 1.6; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 13px; margin: 14px 0 18px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px; }
+  .card h4 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+  .card .body { font-size: 14px; color: var(--ink-soft); white-space: pre-wrap; line-height: 1.6; max-height: 160px; overflow: hidden; position: relative; }
+  .card .body.empty { color: var(--faint); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .mini-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; }
+  .mini-card h4 { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
+  .mini-card .action { color: var(--accent-ink); font-size: 14px; font-weight: 500; background: none; border: none; padding: 0; }
+  .mini-card .action:hover { text-decoration: underline; }
+  .detail-foot-head { font-size: 14px; font-weight: 600; color: var(--muted); margin: 22px 0 10px; }
+
+  .fab { position: absolute; right: 24px; bottom: 24px; background: var(--ink); color: var(--bg); border: none; border-radius: 999px; padding: 13px 22px; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 9px; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
+  .fab:hover { background: #fff; }
+  .fab .plus { font-size: 18px; }
+
+  /* drawer */
+  .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 40; }
+  .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; right: -400px; width: 400px; max-width: 88vw; height: 100%; background: var(--surface); border-left: 1px solid var(--line); transition: right .24s ease; z-index: 41; display: flex; flex-direction: column; }
+  .drawer.open { right: 0; }
+  .drawer .dhead { padding: 18px 20px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; }
+  .drawer .dhead h3 { margin: 0; font-family: var(--serif); font-size: 19px; font-weight: 500; }
+  .drawer .dbody { padding: 16px 20px; overflow-y: auto; }
+  .tool-item { padding: 12px 0; border-bottom: 1px solid var(--line-soft); }
+  .tool-item .tn { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+  .tool-item .td { font-size: 13px; color: var(--muted); margin-top: 3px; }
+  .badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(210,107,83,.15); color: var(--red); text-transform: uppercase; }
+
+  @media (max-width: 760px) {
+    #sidebar { position: fixed; z-index: 30; height: 100%; box-shadow: 4px 0 24px rgba(0,0,0,.4); }
+    .two-col { grid-template-columns: 1fr; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+  <aside id="sidebar">
+    <div class="brand"><span class="name serif">Jarvis</span></div>
+    <div class="nav">
+      <button class="nav-item active" data-view="chat"><span class="ico">💬</span> Chats</button>
+      <button class="nav-item" data-view="projects"><span class="ico">📦</span> Projects</button>
+      <button class="nav-item" id="nav-tools"><span class="ico">🛠</span> Tools</button>
+      <button class="nav-item" id="nav-models"><span class="ico">🧩</span> Models</button>
+      <button class="nav-item" id="nav-profile"><span class="ico">⚙</span> Profile</button>
+    </div>
+    <div class="divider"></div>
+    <div class="side-group">
+      <div class="side-head">Recents</div>
+      <div id="chats-list"></div>
+    </div>
+    <div class="sidebar-foot">
+      <div class="avatar" id="avatar">WA</div>
+      <div>
+        <div class="who">You</div>
+        <div class="sub" id="foot-sub">Local · private</div>
+      </div>
+    </div>
+  </aside>
+
+  <div id="main">
+    <div class="topbar">
+      <button class="icon-btn" id="toggle-sidebar">☰</button>
+      <span class="title" id="topbar-title">Jarvis<small id="ctx-label"></small></span>
+      <span class="spacer"></span>
+      <div class="seg" id="model-seg" title="Auto switches to vision for images">
+        <button data-mode="auto" class="on">Auto</button>
+        <button data-mode="text">Text</button>
+        <button data-mode="vision">Vision</button>
+      </div>
+      <select id="provider" title="Which backend answers — cloud options send the turn off your machine"></select>
+      <select id="persona" title="Persona"></select>
+      <button class="icon-btn" id="handsfree" title="Hands-free voice">🎧</button>
+    </div>
+
+    <!-- CHAT VIEW -->
+    <div class="view active" id="view-chat">
+      <div id="log">
+        <div id="greeting">
+          <div class="hi serif" id="hi-text">How can I help?</div>
+          <div class="sub">Your local assistant — it can run commands, manage files, and remember across sessions.</div>
+          <div class="suggestions">
+            <button class="chip">What's my disk usage?</button>
+            <button class="chip">List my Downloads folder</button>
+            <button class="chip">Remember I prefer concise answers</button>
+            <button class="chip">Write &amp; test a Python function</button>
+          </div>
+        </div>
+        <div class="stream" id="stream" style="display:none"></div>
+      </div>
+      <div class="composer-wrap">
+        <div class="composer">
+          <div class="presence idle" id="presence"><span class="pdot"></span><span id="presence-text">Ready</span></div>
+          <div class="composer-row">
+            <textarea id="input" rows="1" placeholder="Reply to Jarvis…"></textarea>
+            <input type="file" id="file-input" multiple style="display:none">
+            <button class="comp-btn" id="upload-btn" title="Attach">📎</button>
+            <button class="comp-btn" id="mic" title="Dictate">🎙</button>
+            <button class="comp-btn" id="send" title="Send">↑</button>
+          </div>
+        </div>
+      </div>
+      <div class="hint" id="hint">Jarvis runs locally and can make mistakes. Approve actions before they run.</div>
+    </div>
+
+    <!-- PROJECTS LIST VIEW -->
+    <div class="view" id="view-projects">
+      <div class="page"><div class="page-inner">
+        <div class="page-title serif">Projects</div>
+        <div class="search-row"><input class="search-big" id="proj-search" placeholder="Search projects"></div>
+        <div id="proj-rows"></div>
+      </div></div>
+      <button class="fab" id="fab-new-project"><span class="plus">+</span> New project</button>
+    </div>
+
+    <!-- PROJECT DETAIL VIEW -->
+    <div class="view" id="view-detail">
+      <div class="topbar" style="border-bottom:1px solid var(--line)">
+        <button class="icon-btn" id="detail-back">←</button>
+        <span class="spacer"></span>
+        <button class="icon-btn" id="detail-open" title="Open in chat">💬</button>
+      </div>
+      <div class="page"><div class="page-inner">
+        <div class="detail-title serif" id="detail-name">Project</div>
+        <div class="detail-desc" id="detail-desc"></div>
+        <div class="pill">🔒 Private · local</div>
+
+        <div class="card">
+          <h4>Memory</h4>
+          <div class="body" id="detail-memory">(empty)</div>
+        </div>
+
+        <div class="two-col">
+          <div class="mini-card">
+            <h4>Project knowledge</h4>
+            <div id="detail-files" style="font-size:13px;color:var(--muted);margin-bottom:10px"></div>
+            <button class="action" id="detail-add-knowledge">Add files</button>
+          </div>
+          <div class="mini-card">
+            <h4>Custom instructions</h4>
+            <div id="detail-persona" style="font-size:13px;color:var(--muted);margin-bottom:10px"></div>
+            <button class="action" id="detail-edit-instructions">Change persona</button>
+          </div>
+        </div>
+
+        <div class="detail-foot-head">Recent chats</div>
+        <div id="detail-chats"></div>
+      </div></div>
+      <button class="fab" id="fab-new-chat"><span class="plus">+</span> New chat</button>
+    </div>
+  </div>
+
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+  <div class="drawer" id="drawer">
+    <div class="dhead"><h3 class="serif">Tools</h3><button class="icon-btn" id="drawer-close">✕</button></div>
+    <div class="dbody" id="drawer-body"></div>
+  </div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const log=$("log"), stream=$("stream"), greeting=$("greeting"), input=$("input");
+const presence=$("presence"), presenceText=$("presence-text");
+let started=false, activeProject="default";
+const PLABEL={ engineer:"Engineer", assistant:"Assistant" };
+
+function showView(v){
+  document.querySelectorAll(".view").forEach(el=>el.classList.remove("active"));
+  $("view-"+v).classList.add("active");
+  document.querySelectorAll(".nav-item[data-view]").forEach(n=>n.classList.toggle("active", n.dataset.view===v));
+}
+document.querySelectorAll(".nav-item[data-view]").forEach(n=>n.onclick=()=>{
+  showView(n.dataset.view);
+  if(n.dataset.view==="projects") loadProjects();
+});
+
+function ensureStream(){ if(!started){ greeting.style.display="none"; stream.style.display="flex"; started=true; } }
+function setStatus(s,t){ presence.className="presence "+s; presenceText.textContent=t; }
+function addMsg(role,text,cls){
+  ensureStream();
+  const w=document.createElement("div"); w.className="msg "+cls;
+  const rl = cls==="user"?"You":cls==="tool"?"":"Jarvis";
+  w.innerHTML=(rl?`<div class="role">${rl}</div>`:"")+`<div class="bubble"></div>`;
+  w.querySelector(".bubble").textContent=text; stream.appendChild(w); log.scrollTop=log.scrollHeight; return w;
+}
+
+// -------- Chat (streaming) --------
+async function send(){
+  const text=input.value.trim(); if(!text) return;
+  input.value=""; autosize(); addMsg("user",text,"user"); setStatus("think","Thinking…");
+  // Create the assistant bubble we'll stream into.
+  let bubble=null, full="";
+  const ensureBubble=()=>{ if(!bubble){ const w=addMsg("assistant","","assistant"); bubble=w.querySelector(".bubble"); } return bubble; };
+  try{
+    const res=await fetch("/chat/stream",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message:text})});
+    const reader=res.body.getReader(); const dec=new TextDecoder(); let buf="";
+    while(true){
+      const {value,done}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      const parts=buf.split("\n\n"); buf=parts.pop();
+      for(const p of parts){
+        const ev=parseSSE(p); if(!ev) continue;
+        if(ev.event==="delegate"){ addMsg("tool","⚙ Detected a coding task — delegating to the Engineer sub-agent…","tool"); }
+        else if(ev.event==="tool"){ addMsg("tool",(providerSel&&providerSel.value!=="local"?"☁ ":"")+"running "+ev.data.name+"…","tool"); }
+        else if(ev.event==="model"){ if(ev.data.ran&&ev.data.ran.length) addMsg("tool","ran: "+ev.data.ran.join(" → "),"tool"); setStatus("run","Writing…"); }
+        else if(ev.event==="token"){ full+=ev.data.t; ensureBubble().textContent=full; log.scrollTop=log.scrollHeight; }
+        else if(ev.event==="pending"){ showApproval(ev.data,ev.data.ran||[]); setStatus("idle","Ready"); return; }
+        else if(ev.event==="done"){ if(!bubble&&ev.data.reply){ ensureBubble().textContent=ev.data.reply; } setStatus("idle","Ready"); speak(ev.data.reply||full); refreshChats(); }
+      }
+    }
+  }catch(e){ setStatus("idle","Ready"); addMsg("system","Stream failed — is server.py running?","tool"); }
+}
+function parseSSE(block){
+  let event="message", data="";
+  for(const line of block.split("\n")){
+    if(line.startsWith("event:")) event=line.slice(6).trim();
+    else if(line.startsWith("data:")) data+=line.slice(5).trim();
+  }
+  if(!data) return null;
+  try{ return {event, data: JSON.parse(data)}; }catch(e){ return null; }
+}
+function handleResponse(d){
+  if(d.pending){ showApproval(d.pending,d.ran||[]); return; }
+  if(d.ran&&d.ran.length) addMsg("tool","ran: "+d.ran.join(" → "),"tool");
+  if(d.denied) addMsg("tool","denied "+d.denied,"tool");
+  if(d.note) addMsg("tool",d.note,"tool");
+  if(d.model) addMsg("tool","answered with "+d.model,"tool");
+  addMsg("assistant",d.reply,"assistant"); setStatus("idle","Ready"); speak(d.reply);
+}
+function showApproval(p,ran){
+  setStatus("await","Waiting for your approval");
+  if(handsFree){ if(recog&&listening) recog.stop(); if(speakOn){ window.speechSynthesis.cancel(); window.speechSynthesis.speak(new SpeechSynthesisUtterance("This action needs your approval on screen.")); } }
+  ensureStream();
+  const card=document.createElement("div"); card.className="msg";
+  const inner=document.createElement("div"); inner.className="approve";
+  let diffHtml="";
+  if(p.diff){
+    const rows=p.diff.split("\n").map(line=>{
+      let cls="diff-ctx";
+      if(line.startsWith("+")&&!line.startsWith("+++")) cls="diff-add";
+      else if(line.startsWith("-")&&!line.startsWith("---")) cls="diff-del";
+      else if(line.startsWith("@@")) cls="diff-hunk";
+      else if(line.startsWith("+++")||line.startsWith("---")) cls="diff-file";
+      const esc=line.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+      return `<div class="${cls}">${esc||"&nbsp;"}</div>`;
+    }).join("");
+    diffHtml=`<div class="diff">${rows}</div>`;
+  }
+  inner.innerHTML=`<div class="head">⚠ Approval needed — this can change your system</div>
+    <code>${p.name}(${JSON.stringify(p.args).replace(/</g,"&lt;")})</code>
+    ${diffHtml}
+    <div class="btns"><button class="yes">Approve &amp; run</button><button class="no">Deny</button></div>`;
+  card.appendChild(inner); stream.appendChild(card); log.scrollTop=log.scrollHeight;
+  const finish=async(ok)=>{ inner.querySelectorAll("button").forEach(b=>b.disabled=true); setStatus(ok?"run":"think",ok?"Running…":"Cancelling…");
+    const r=await fetch("/approve",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...p,approved:ok,ran})}); handleResponse(await r.json()); };
+  inner.querySelector(".yes").onclick=()=>finish(true); inner.querySelector(".no").onclick=()=>finish(false);
+}
+
+// -------- Voice --------
+let speakOn=false;
+function speak(text){ const resume=()=>{ awaitingReply=false; if(handsFree) startListening(); };
+  if(!speakOn||!("speechSynthesis"in window)){ resume(); return; }
+  window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.rate=1.05; u.onend=resume; u.onerror=resume; window.speechSynthesis.speak(u); }
+const mic=$("mic"); const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let recog=null, listening=false, handsFree=false, awaitingReply=false;
+if(SR){ recog=new SR(); recog.lang="en-US"; recog.interimResults=false;
+  recog.onresult=(e)=>{ const t=e.results[0][0].transcript.trim(); if(handsFree){ if(t){ awaitingReply=true; input.value=t; send(); } } else { input.value=t; autosize(); } };
+  recog.onend=()=>{ listening=false; mic.classList.remove("on"); if(handsFree&&!awaitingReply) startListening(); else if(!handsFree) setStatus("idle","Ready"); };
+  recog.onerror=(e)=>{ listening=false; mic.classList.remove("on"); if(handsFree&&(e.error==="no-speech"||e.error==="aborted")){ if(!awaitingReply) startListening(); } else if(!handsFree) setStatus("idle","Ready"); };
+  mic.onclick=()=>{ if(handsFree) return; if(listening){ recog.stop(); return; } startListening(); };
+} else { mic.disabled=true; mic.title="Voice needs Chrome or Safari"; }
+function startListening(){ if(!recog||listening) return; try{ listening=true; mic.classList.add("on"); setStatus("run",handsFree?"Listening (hands-free)…":"Listening…"); recog.start(); }catch(e){ listening=false; setTimeout(()=>startListening(),250); } }
+$("handsfree").onclick=()=>{ if(!SR){ addMsg("system","Voice needs Chrome or Safari.","tool"); return; }
+  handsFree=!handsFree; $("handsfree").style.color=handsFree?"var(--accent)":""; $("handsfree").style.background=handsFree?"var(--surface)":"";
+  if(handsFree){ speakOn=true; addMsg("system","Hands-free on — just speak.","tool"); awaitingReply=false; startListening(); }
+  else { addMsg("system","Hands-free off.","tool"); if(recog&&listening) recog.stop(); setStatus("idle","Ready"); } };
+
+// -------- Composer --------
+function autosize(){ input.style.height="auto"; input.style.height=Math.min(input.scrollHeight,160)+"px"; }
+input.addEventListener("input",autosize);
+input.addEventListener("keydown",(e)=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } });
+$("send").onclick=send;
+document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{ input.value=c.textContent; autosize(); send(); });
+$("toggle-sidebar").onclick=()=>$("sidebar").classList.toggle("collapsed");
+
+// -------- Persona --------
+const personaSel=$("persona");
+fetch("/persona").then(r=>r.json()).then(d=>{ personaSel.innerHTML=d.available.map(p=>`<option value="${p}">${PLABEL[p]||p}</option>`).join(""); personaSel.value=d.active; updateCtx(); });
+personaSel.onchange=async()=>{ await fetch("/persona",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({persona:personaSel.value})});
+  stream.innerHTML=""; started=false; greeting.style.display="flex"; stream.style.display="none";
+  showView("chat"); addMsg("system",`Switched to the ${PLABEL[personaSel.value]} persona. Fresh chat — memory kept.`,"tool"); updateCtx(); };
+
+// -------- Model --------
+const modelSeg=$("model-seg");
+fetch("/model").then(r=>r.json()).then(d=>setSeg(d.mode));
+function setSeg(m){ modelSeg.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.mode===m)); }
+modelSeg.querySelectorAll("button").forEach(b=>b.onclick=async()=>{ setSeg(b.dataset.mode);
+  const d=await(await fetch("/model",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({mode:b.dataset.mode})})).json();
+  addMsg("system",`Model: ${b.dataset.mode} (using ${d.would_use}).`,"tool"); });
+
+// -------- Runtime mode (local vs cloud) --------
+let CLOUD_MODE=false;
+fetch("/mode").then(r=>r.json()).then(d=>{
+  CLOUD_MODE = d.mode==="cloud";
+  if(CLOUD_MODE){
+    // Show a banner and prompt for the user's own API key.
+    const bar=document.createElement("div");
+    bar.style.cssText="background:var(--surface-2);border-bottom:1px solid var(--line);padding:8px 16px;font-size:12.5px;color:var(--muted);text-align:center";
+    bar.innerHTML="☁ Cloud mode — runs on Claude/Gemini. <a id='setkey' style='color:var(--accent-ink);cursor:pointer'>Add your API key</a> to start.";
+    document.body.insertBefore(bar, document.body.firstChild);
+    document.getElementById("setkey").onclick=promptForKey;
+    // Local-only features are hidden in cloud mode.
+    const ml=document.getElementById("nav-models"); if(ml) ml.style.display="none";
+  }
+});
+async function promptForKey(){
+  const which = (prompt("Which provider? Type 'claude' or 'gemini':","claude")||"").trim().toLowerCase();
+  if(which!=="claude"&&which!=="gemini") return;
+  const key = prompt(`Paste your ${which} API key (kept in memory only, never saved):`);
+  if(!key) return;
+  const d=await(await fetch("/apikey",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({which,key})})).json();
+  if(d.ok){ addMsg("system",`${which} key accepted — you're ready to chat.`,"tool"); refreshProvider&&refreshProvider(); }
+}
+
+// -------- Provider (local / claude / gemini) --------
+const providerSel=$("provider");
+const PROV_LABEL={local:"🔒 Local",claude:"☁ Claude",gemini:"☁ Gemini"};
+async function refreshProvider(){
+  try{ const d=await(await fetch("/provider")).json();
+    providerSel.innerHTML=Object.keys(d.available).map(p=>{ const ok=d.available[p];
+      return `<option value="${p}" ${ok?"":"disabled"}>${PROV_LABEL[p]||p}${ok?"":" (no key)"}</option>`; }).join("");
+    providerSel.value=d.provider;
+  }catch(e){}
+}
+refreshProvider();
+providerSel.onchange=async()=>{ const choice=providerSel.value;
+  const d=await(await fetch("/provider",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({provider:choice})})).json();
+  if(d.error){ addMsg("system",d.error,"tool"); refreshProvider(); return; }
+  if(choice!=="local") addMsg("system","⚠ Now using "+choice+" — this sends your messages to the cloud. Switch back to Local to keep turns on your machine.","tool");
+  else addMsg("system","Back to Local — turns stay on your machine.","tool");
+};
+
+// -------- Projects list --------
+async function loadProjects(){
+  const d=await(await fetch("/projects")).json(); activeProject=d.active;
+  const rows=$("proj-rows");
+  rows.innerHTML=d.projects.map(p=>`<div class="proj-row" data-name="${p.name}">
+    <div class="pname serif">${p.name}</div>
+    <div class="pmeta">${p.files} file${p.files===1?"":"s"} · ${p.conversations} chat${p.conversations===1?"":"s"}</div></div>`).join("");
+  rows.querySelectorAll(".proj-row").forEach(el=>el.onclick=()=>openDetail(el.dataset.name));
+}
+$("proj-search").oninput=(e)=>{ const q=e.target.value.toLowerCase();
+  document.querySelectorAll(".proj-row").forEach(el=>el.style.display=el.textContent.toLowerCase().includes(q)?"":"none"); };
+$("fab-new-project").onclick=async()=>{ const name=prompt("Name your new project:"); if(!name) return;
+  await fetch("/projects",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"create",name})});
+  loadProjects(); refreshChats(); };
+
+// -------- Project detail --------
+let detailName="default";
+async function openDetail(name){
+  detailName=name; showView("detail");
+  const d=await(await fetch("/project/"+encodeURIComponent(name))).json();
+  $("detail-name").textContent=d.name;
+  $("detail-desc").textContent=d.description||"No description yet. Tap to add one.";
+  $("detail-desc").style.color=d.description?"var(--ink-soft)":"var(--faint)";
+  const mem=$("detail-memory"); mem.textContent=d.memory; mem.classList.toggle("empty",d.memory.startsWith("("));
+  $("detail-files").textContent=d.files.startsWith("(")?"No files yet":d.files.split("\n").length+" file(s): "+d.files.replace(/\n/g,", ");
+  $("detail-persona").textContent="Persona: "+(PLABEL[d.persona]||d.persona);
+}
+$("detail-back").onclick=()=>{ showView("projects"); loadProjects(); };
+$("detail-desc").onclick=async()=>{ const v=prompt("Project description:",$("detail-desc").textContent.startsWith("No description")?"":$("detail-desc").textContent); if(v===null) return;
+  await fetch("/project/"+encodeURIComponent(detailName)+"/description",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:v})}); openDetail(detailName); };
+$("detail-add-knowledge").onclick=()=>{ enterProject(detailName,()=>$("file-input").click()); };
+$("detail-edit-instructions").onclick=()=>{ personaSel.focus(); enterProject(detailName); };
+$("detail-open").onclick=()=>enterProject(detailName);
+$("fab-new-chat").onclick=()=>enterProject(detailName);
+async function enterProject(name,then){
+  await fetch("/projects",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"switch",name})});
+  stream.innerHTML=""; started=false; greeting.style.display="flex"; stream.style.display="none";
+  await refreshProjectsMeta(); showView("chat"); if(then) then();
+}
+async function refreshProjectsMeta(){ const d=await(await fetch("/projects")).json(); activeProject=d.active; updateCtx(); refreshChats(); }
+refreshProjectsMeta();
+function updateCtx(){ $("ctx-label").textContent=`${activeProject} · ${PLABEL[personaSel.value]||personaSel.value||""}`; }
+
+// -------- Recent chats --------
+const chatsList=$("chats-list");
+async function refreshChats(){
+  try{ const d=await(await fetch("/conversations")).json();
+    if(!d.conversations||!d.conversations.length){ chatsList.innerHTML=`<div style="font-size:13px;color:var(--faint);padding:8px 12px">No saved chats yet</div>`; return; }
+    chatsList.innerHTML=d.conversations.slice(0,14).map(c=>`<button class="side-item" data-id="${c.id}"><span class="ico">💬</span>${c.preview}</button>`).join("");
+    chatsList.querySelectorAll(".side-item").forEach(el=>el.onclick=()=>loadChat(el.dataset.id));
+  }catch(e){}
+}
+async function loadChat(id){ try{
+  const r=await fetch("/conversations/"+id+"/resume",{method:"POST"});
+  const d=await r.json(); if(!d.ok) return;
+  showView("chat"); stream.innerHTML=""; started=false;
+  (d.turns||[]).forEach(t=>addMsg(t.role,t.content,t.role==="user"?"user":"assistant"));
+  addMsg("system","Resumed this chat — continue where you left off.","tool");
+  setStatus("idle","Ready");
+}catch(e){} }
+refreshChats();
+
+// -------- Workspace footer --------
+fetch("/workspace").then(r=>r.json()).then(d=>{ const ws=d.workspace.replace(/^\/Users\/[^/]+/,"~").replace(/^\/home\/[^/]+/,"~");
+  $("foot-sub").textContent="📂 "+ws; $("foot-sub").title="Files confined to: "+d.upload_dir; });
+
+// -------- Upload --------
+const fileInput=$("file-input");
+$("upload-btn").onclick=()=>fileInput.click();
+fileInput.onchange=async()=>{ if(!fileInput.files.length) return; const form=new FormData(); for(const f of fileInput.files) form.append("files",f);
+  setStatus("run","Uploading…");
+  try{ const d=await(await fetch("/upload",{method:"POST",body:form})).json();
+    if(d.saved&&d.saved.length){ showView("chat"); addMsg("system","Added to this project: "+d.saved.join(", ")+(d.has_image?" — auto mode will use the vision model for images.":"."),"tool"); } }
+  catch(e){ addMsg("system","Upload failed — is the server running?","tool"); }
+  finally{ fileInput.value=""; setStatus("idle","Ready"); } };
+
+// -------- New chat (nav Chats re-click) --------
+document.querySelector('.nav-item[data-view="chat"]').addEventListener("dblclick", async()=>{
+  await fetch("/reset",{method:"POST"}); stream.innerHTML=""; started=false; greeting.style.display="flex"; stream.style.display="none"; setStatus("idle","Ready");
+});
+
+// -------- Tools drawer --------
+const drawer=$("drawer"), backdrop=$("drawer-backdrop");
+function openDrawer(){ drawer.classList.add("open"); backdrop.classList.add("open"); }
+function closeDrawer(){ drawer.classList.remove("open"); backdrop.classList.remove("open"); }
+backdrop.onclick=closeDrawer; $("drawer-close").onclick=closeDrawer;
+$("nav-tools").onclick=async()=>{ openDrawer(); drawer.querySelector("h3").textContent="Tools & workspace"; const b=$("drawer-body"); b.innerHTML="Loading…";
+  try{
+    const [tools,git,web,sbx,rules,mcp]=await Promise.all([
+      fetch("/tools").then(r=>r.json()),
+      fetch("/git").then(r=>r.json()),
+      fetch("/websearch").then(r=>r.json()),
+      fetch("/sandbox").then(r=>r.json()),
+      fetch("/rules").then(r=>r.json()),
+      fetch("/mcp").then(r=>r.json()).catch(()=>({servers:[]})),
+    ]);
+    const gitOn=git.status&&git.status.enabled;
+    b.innerHTML=`
+      <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--line)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div><b style="font-size:13.5px">Git safety net</b><div style="font-size:12px;color:var(--muted)">Session branch + rollback on reject</div></div>
+          <button id="git-toggle" class="action" style="background:${gitOn?"var(--green)":"var(--surface-2)"};color:${gitOn?"#fff":"var(--ink)"};border:none;border-radius:8px;padding:6px 12px">${gitOn?"On":"Enable"}</button>
+        </div>
+        ${gitOn?`<div style="font-size:12px;color:var(--muted);margin-top:6px">Branch: ${git.status.branch||""} ${git.status.dirty?"· unsaved changes":"· clean"}</div><button id="git-rollback" style="margin-top:8px;background:var(--surface-2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13px">↺ Roll back to clean</button>`:""}
+      </div>
+      <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--line)">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div><b style="font-size:13.5px">Web search</b><div style="font-size:12px;color:var(--muted)">⚠ Sends queries to the internet</div></div>
+          <button id="web-toggle" class="action" style="background:${web.enabled?"var(--green)":"var(--surface-2)"};color:${web.enabled?"#fff":"var(--ink)"};border:none;border-radius:8px;padding:6px 12px">${web.enabled?"On":"Enable"}</button>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--line)">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div><b style="font-size:13.5px">Sandboxed shell</b><div style="font-size:12px;color:var(--muted)">Run shell commands in a Docker container</div></div>
+          <button id="sbx-toggle" class="action" style="background:${sbx.enabled?"var(--green)":"var(--surface-2)"};color:${sbx.enabled?"#fff":"var(--ink)"};border:none;border-radius:8px;padding:6px 12px">${sbx.enabled?"On":"Enable"}</button>
+        </div>
+      </div>
+      <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--line)">
+        <b style="font-size:13.5px">Project rules (.jarvisrules)</b>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Architectural invariants always sent to the model for this project.</div>
+        <textarea id="rules-text" style="width:100%;height:120px;background:var(--bg-deep);border:1px solid var(--line);border-radius:9px;color:var(--ink);font-family:var(--mono);font-size:12px;padding:10px;resize:vertical"></textarea>
+        <button id="rules-save" class="action" style="margin-top:8px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 14px">Save rules</button>
+        <span id="rules-status" style="margin-left:8px;font-size:12px;color:var(--green)"></span>
+      </div>
+      <b style="font-size:13px;color:var(--muted)">MCP servers</b>
+      <div style="font-size:12.5px;margin:6px 0 16px;padding-bottom:16px;border-bottom:1px solid var(--line)">
+        ${mcp.servers&&mcp.servers.length
+          ? mcp.servers.map(s=>`<div style="color:var(--ink-soft)">🔌 ${s.name} — ${(s.tools||[]).length} tool(s)</div>`).join("")
+          : '<span style="color:var(--muted)">None connected. Add servers in <code>mcp_servers.json</code> (see the terminal on startup for any connection errors and hints).</span>'}
+      </div>
+      <b style="font-size:13px;color:var(--muted)">Available tools</b>
+      ${tools.tools.map(t=>`<div class="tool-item"><div class="tn">${t.name} ${t.destructive?'<span class="badge">approval</span>':""}</div><div class="td">${t.description}</div></div>`).join("")}`;
+    $("git-toggle").onclick=async()=>{ const a=gitOn?"disable":"enable";
+      const d=await(await fetch("/git",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:a})})).json();
+      addMsg("system",d.message||"","tool"); $("nav-tools").onclick(); };
+    if($("git-rollback")) $("git-rollback").onclick=async()=>{ const d=await(await fetch("/git",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"rollback"})})).json(); addMsg("system",d.message||"","tool"); };
+    $("web-toggle").onclick=async()=>{ const d=await(await fetch("/websearch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:!web.enabled})})).json();
+      addMsg("system",d.enabled?"⚠ Web search ON — queries will go to the internet.":"Web search off.","tool"); $("nav-tools").onclick(); };
+    $("sbx-toggle").onclick=async()=>{ const d=await(await fetch("/sandbox",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:!sbx.enabled})})).json();
+      addMsg("system",d.enabled?"Sandboxed shell ON — commands run in Docker (needs Docker running).":"Sandboxed shell off.","tool"); $("nav-tools").onclick(); };
+    $("rules-text").value=rules.rules||"";
+    $("rules-save").onclick=async()=>{ await fetch("/rules",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({rules:$("rules-text").value})});
+      $("rules-status").textContent="Saved ✓"; setTimeout(()=>$("rules-status").textContent="",2000); };
+  }catch(e){ b.innerHTML="Couldn't load tools."; } };
+
+// -------- Models picker (dynamic, from Ollama) --------
+$("nav-models").onclick=async()=>{
+  openDrawer(); drawer.querySelector("h3").textContent="Local models";
+  const b=$("drawer-body"); b.innerHTML="Loading installed models…";
+  try{
+    const d=await(await fetch("/models")).json();
+    if(d.error){ b.innerHTML=`<p style="color:var(--muted)">Couldn't reach Ollama: ${d.error}</p>`; return; }
+    if(!d.installed.length){ b.innerHTML=`<p style="color:var(--muted)">No models installed. Pull one, e.g. <code>ollama pull qwen2.5-coder</code>, then reopen.</p>`; return; }
+    const opts=(sel)=>d.installed.map(m=>`<option value="${m}" ${m===sel?"selected":""}>${m}</option>`).join("");
+    b.innerHTML=`
+      <p style="font-size:13px;color:var(--muted);margin-top:0">Assign which installed model handles each kind of turn. Pull more with <code>ollama pull &lt;name&gt;</code>.</p>
+      <label style="display:block;font-size:13px;font-weight:600;margin:14px 0 5px">Text (general chat)</label>
+      <select id="m-text" style="width:100%;padding:8px;background:var(--bg-deep);border:1px solid var(--line);border-radius:9px;color:var(--ink)">${opts(d.text)}</select>
+      <label style="display:block;font-size:13px;font-weight:600;margin:14px 0 5px">Coding (engineer persona)</label>
+      <select id="m-coding" style="width:100%;padding:8px;background:var(--bg-deep);border:1px solid var(--line);border-radius:9px;color:var(--ink)">${opts(d.coding)}</select>
+      <label style="display:block;font-size:13px;font-weight:600;margin:14px 0 5px">Vision (images)</label>
+      <select id="m-vision" style="width:100%;padding:8px;background:var(--bg-deep);border:1px solid var(--line);border-radius:9px;color:var(--ink)">${opts(d.vision)}</select>
+      <button id="m-save" style="margin-top:16px;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:500">Save assignments</button>
+      <span id="m-status" style="margin-left:10px;font-size:13px;color:var(--green)"></span>`;
+    $("m-save").onclick=async()=>{
+      await fetch("/models/set",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({text:$("m-text").value,coding:$("m-coding").value,vision:$("m-vision").value})});
+      $("m-status").textContent="Saved ✓"; setTimeout(()=>$("m-status").textContent="",2000);
+    };
+  }catch(e){ b.innerHTML="Couldn't load models."; }
+};
+
+// -------- Profile editor (config memory tier) --------
+$("nav-profile").onclick=async()=>{
+  openDrawer(); drawer.querySelector("h3").textContent="Config profile";
+  const b=$("drawer-body"); b.innerHTML="Loading…";
+  try{
+    const d=await(await fetch("/profile")).json();
+    b.innerHTML=`<p style="font-size:13px;color:var(--muted);margin-top:0">A permanent note about your environment — always available to Jarvis. Architecture, package versions, local quirks.</p>
+      <textarea id="profile-text" style="width:100%;height:300px;background:var(--bg-deep);border:1px solid var(--line);border-radius:10px;color:var(--ink);font-family:var(--mono);font-size:12.5px;padding:12px;resize:vertical"></textarea>
+      <button id="profile-save" style="margin-top:12px;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 18px;font-size:14px;font-weight:500">Save profile</button>
+      <span id="profile-status" style="margin-left:10px;font-size:13px;color:var(--green)"></span>`;
+    $("profile-text").value=d.profile;
+    $("profile-save").onclick=async()=>{
+      await fetch("/profile",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({profile:$("profile-text").value})});
+      $("profile-status").textContent="Saved ✓"; setTimeout(()=>$("profile-status").textContent="",2000);
+    };
+  }catch(e){ b.innerHTML="Couldn't load profile."; }
+};
+
+setStatus("idle","Ready");
+</script>
+</body>
+</html>

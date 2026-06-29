@@ -1,0 +1,35 @@
+{
+  "_comment": "Copy to mcp_servers.json. These are VERIFIED-REAL servers (checked on npm). 'everything' is the official reference server — great for confirming your MCP client works. 'memory' is a knowledge-graph store. 'filesystem' needs a REAL directory path that exists. Both config formats work (mcpServers object OR servers list). Tools appear as mcp__<server>__<tool>.",
+
+  "mcpServers": {
+    "everything": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/williamledesma/Desktop/jarvis"]
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
+    }
+  },
+
+  "_more_servers_you_can_add": {
+    "_note": "These need credentials or extra setup — uncomment into mcpServers and fill in.",
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR_TOKEN>"}
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://localhost/mydb"]
+    },
+    "git_via_uv": {
+      "command": "uvx",
+      "args": ["mcp-server-git", "--repository", "/path/to/repo"]
+    }
+  }
+}

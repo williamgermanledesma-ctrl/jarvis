@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Console — Local Assistant</title>
+<style>
+  :root {
+    --bg: #14110d;
+    --panel: #1c1813;
+    --line: #2e2820;
+    --ink: #ece3d2;
+    --dim: #8a7f6c;
+    --amber: #e0a548;
+    --amber-soft: #b5823a;
+    --green: #7fa86b;
+    --red: #c4694f;
+    --mono: "SF Mono", "JetBrains Mono", "Menlo", monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  header {
+    border-bottom: 1px solid var(--line);
+    padding: 14px 20px;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+  }
+  header .title {
+    color: var(--amber);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-size: 13px;
+  }
+  header .sub { color: var(--dim); font-size: 12px; }
+  header .spacer { flex: 1; }
+  header button {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  header button:hover { color: var(--ink); border-color: var(--amber-soft); }
+
+  /* Signature element: the status line */
+  #status {
+    border-bottom: 1px solid var(--line);
+    padding: 8px 20px;
+    font-size: 12px;
+    color: var(--dim);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 34px;
+    background: var(--panel);
+  }
+  #status .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--dim);
+    flex: none;
+  }
+  #status.idle   .dot { background: var(--amber-soft); }
+  #status.think  .dot { background: var(--amber); animation: pulse 1s infinite; }
+  #status.run    .dot { background: var(--green); animation: pulse 0.7s infinite; }
+  #status.await  .dot { background: var(--red); animation: pulse 0.6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+  #log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .msg { max-width: 78%; white-space: pre-wrap; word-wrap: break-word; }
+  .msg .who {
+    font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--dim); margin-bottom: 4px;
+  }
+  .msg.user { align-self: flex-end; text-align: right; }
+  .msg.user .body { color: var(--ink); }
+  .msg.user .who { color: var(--amber-soft); }
+  .msg.bot .body {
+    border-left: 2px solid var(--amber-soft);
+    padding-left: 12px;
+  }
+  .msg.tool .body {
+    color: var(--green);
+    font-size: 12px;
+    border-left: 2px solid var(--line);
+    padding-left: 12px;
+  }
+
+  /* Approval card */
+  .approve {
+    align-self: stretch;
+    max-width: 100%;
+    border: 1px solid var(--red);
+    background: rgba(196,105,79,0.07);
+    padding: 14px;
+  }
+  .approve .head {
+    color: var(--red); text-transform: uppercase; letter-spacing: 0.12em;
+    font-size: 11px; margin-bottom: 8px;
+  }
+  .approve code {
+    display: block; color: var(--ink); margin: 6px 0 12px;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .approve .btns { display: flex; gap: 10px; }
+  .approve button {
+    font-family: var(--mono); font-size: 12px; padding: 7px 16px;
+    cursor: pointer; border: 1px solid var(--line); background: none;
+    color: var(--ink); text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .approve button.yes { border-color: var(--green); color: var(--green); }
+  .approve button.yes:hover { background: rgba(127,168,107,0.12); }
+  .approve button.no { border-color: var(--red); color: var(--red); }
+  .approve button.no:hover { background: rgba(196,105,79,0.12); }
+  .approve button:disabled { opacity: 0.4; cursor: default; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 14px 20px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+  #input {
+    flex: 1;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 10px 12px;
+    resize: none;
+    min-height: 42px;
+    max-height: 140px;
+  }
+  #input:focus { outline: none; border-color: var(--amber-soft); }
+  footer button {
+    font-family: var(--mono);
+    border: 1px solid var(--line);
+    background: none;
+    color: var(--ink);
+    padding: 0 16px;
+    height: 42px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 12px;
+    flex: none;
+  }
+  #send:hover { border-color: var(--amber); color: var(--amber); }
+  #mic { width: 48px; padding: 0; font-size: 16px; }
+  #mic.on { border-color: var(--red); color: var(--red); animation: pulse 0.8s infinite; }
+  #speak-toggle { font-size: 11px; }
+  #speak-toggle.on { border-color: var(--green); color: var(--green); }
+  #handsfree-toggle { font-size: 11px; }
+  #handsfree-toggle.on { border-color: var(--green); color: var(--green); animation: pulse 1.4s infinite; }
+
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+</head>
+<body>
+  <header>
+    <span class="title">Console</span>
+    <span class="sub">local assistant · phase 2</span>
+    <span class="spacer"></span>
+    <button id="handsfree-toggle" title="Continuous listening — speak, it replies, repeat">🎧 hands-free</button>
+    <button id="speak-toggle" title="Toggle spoken replies">🔊 voice off</button>
+    <button id="reset">reset</button>
+  </header>
+
+  <div id="status" class="idle">
+    <span class="dot"></span>
+    <span id="status-text">Ready.</span>
+  </div>
+
+  <div id="log"></div>
+
+  <footer>
+    <textarea id="input" placeholder="Type a command… or press the mic to speak." rows="1"></textarea>
+    <button id="mic" title="Hold to dictate">🎙</button>
+    <button id="send">Send</button>
+  </footer>
+
+<script>
+const log = document.getElementById("log");
+const input = document.getElementById("input");
+const statusEl = document.getElementById("status");
+const statusText = document.getElementById("status-text");
+
+function setStatus(state, text) {
+  statusEl.className = state;
+  statusText.textContent = text;
+}
+
+function addMsg(who, text, cls) {
+  const wrap = document.createElement("div");
+  wrap.className = "msg " + cls;
+  wrap.innerHTML = `<div class="who">${who}</div><div class="body"></div>`;
+  wrap.querySelector(".body").textContent = text;
+  log.appendChild(wrap);
+  log.scrollTop = log.scrollHeight;
+  return wrap;
+}
+
+// ---------- Sending messages ----------
+async function send() {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  input.style.height = "auto";
+  addMsg("you", text, "user");
+  setStatus("think", "Thinking…");
+
+  try {
+    const res = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text }),
+    });
+    const data = await res.json();
+    handleResponse(data);
+  } catch (e) {
+    setStatus("idle", "Connection error — is server.py running?");
+    addMsg("system", "Could not reach the server. Is server.py running?", "tool");
+  }
+}
+
+function handleResponse(data) {
+  if (data.pending) {
+    showApproval(data.pending);
+    return;
+  }
+  if (data.ran)    addMsg("tool", "ran " + data.ran, "tool");
+  if (data.denied) addMsg("tool", "denied " + data.denied, "tool");
+  addMsg("assistant", data.reply, "bot");
+  setStatus("idle", "Ready.");
+  speak(data.reply);
+}
+
+// ---------- Approval gate (destructive actions) ----------
+function showApproval(pending) {
+  setStatus("await", "Awaiting your approval…");
+  // In hands-free mode, stop listening and announce that a click is needed,
+  // since destructive actions must never be approved by voice automatically.
+  if (handsFree) {
+    if (recog && listening) recog.stop();
+    speakOn && window.speechSynthesis.cancel();
+    if (speakOn) {
+      const u = new SpeechSynthesisUtterance("This action needs your approval on screen.");
+      window.speechSynthesis.speak(u);
+    }
+  }
+  const card = document.createElement("div");
+  card.className = "msg approve";
+  card.innerHTML = `
+    <div class="head">⚠ Approval required — destructive action</div>
+    <code>${pending.name}(${JSON.stringify(pending.args)})</code>
+    <div class="btns">
+      <button class="yes">Approve &amp; run</button>
+      <button class="no">Deny</button>
+    </div>`;
+  log.appendChild(card);
+  log.scrollTop = log.scrollHeight;
+
+  const finish = async (approved) => {
+    card.querySelectorAll("button").forEach(b => b.disabled = true);
+    setStatus(approved ? "run" : "think", approved ? "Running…" : "Cancelling…");
+    const res = await fetch("/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...pending, approved }),
+    });
+    handleResponse(await res.json());
+  };
+  card.querySelector(".yes").onclick = () => finish(true);
+  card.querySelector(".no").onclick  = () => finish(false);
+}
+
+// ---------- Voice OUTPUT (browser text-to-speech) ----------
+let speakOn = false;
+const speakToggle = document.getElementById("speak-toggle");
+speakToggle.onclick = () => {
+  speakOn = !speakOn;
+  speakToggle.classList.toggle("on", speakOn);
+  speakToggle.textContent = speakOn ? "🔊 voice on" : "🔊 voice off";
+  if (!speakOn) window.speechSynthesis.cancel();
+};
+function speak(text) {
+  const resume = () => {
+    // After the assistant finishes speaking, resume listening in hands-free.
+    awaitingReply = false;
+    if (handsFree) startListening();
+  };
+  if (!speakOn || !("speechSynthesis" in window)) {
+    // No spoken reply — resume right away if hands-free.
+    resume();
+    return;
+  }
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 1.05;
+  u.onend = resume;            // resume the loop once speech finishes
+  u.onerror = resume;
+  window.speechSynthesis.speak(u);
+}
+
+// ---------- Voice INPUT (browser speech-to-text) ----------
+const mic = document.getElementById("mic");
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog = null, listening = false;
+let handsFree = false;     // continuous mode toggled from the header
+let awaitingReply = false; // true while the server is working / speaking
+
+if (SR) {
+  recog = new SR();
+  recog.lang = "en-US";
+  recog.interimResults = false;
+
+  recog.onresult = (e) => {
+    const transcript = e.results[0][0].transcript.trim();
+    if (handsFree) {
+      // Hands-free: speak nothing, just send it straight to the assistant.
+      if (transcript) {
+        awaitingReply = true;
+        input.value = transcript;
+        send();           // send() clears input and triggers handleResponse
+      }
+    } else {
+      // Push-to-talk: just drop the text in the box for the user to review/send.
+      input.value = transcript;
+      autosize();
+    }
+  };
+
+  recog.onend = () => {
+    listening = false;
+    mic.classList.remove("on");
+    // In hands-free mode, keep the loop alive: restart listening once we're
+    // not waiting on a reply. (onend fires after each utterance.)
+    if (handsFree && !awaitingReply) {
+      startListening();
+    } else if (!handsFree) {
+      setStatus("idle", "Ready.");
+    }
+  };
+
+  recog.onerror = (e) => {
+    listening = false;
+    mic.classList.remove("on");
+    // 'no-speech' and 'aborted' are normal in continuous mode — just restart.
+    if (handsFree && (e.error === "no-speech" || e.error === "aborted")) {
+      if (!awaitingReply) startListening();
+    } else if (handsFree) {
+      setStatus("await", "Mic error — click 🎧 to restart.");
+    } else {
+      setStatus("idle", "Mic error.");
+    }
+  };
+
+  mic.onclick = () => {
+    if (handsFree) return;  // mic button is push-to-talk only; hands-free owns the loop
+    if (listening) { recog.stop(); return; }
+    startListening();
+  };
+} else {
+  mic.disabled = true;
+  mic.title = "Speech input not supported in this browser (use Chrome or Safari)";
+}
+
+function startListening() {
+  if (!recog || listening) return;
+  try {
+    listening = true;
+    mic.classList.add("on");
+    setStatus("run", handsFree ? "Hands-free: listening…" : "Listening…");
+    recog.start();
+  } catch (err) {
+    // start() throws if called too soon after stop(); retry shortly.
+    listening = false;
+    setTimeout(() => { if ((handsFree || !listening)) startListening(); }, 250);
+  }
+}
+
+// ---------- Hands-free toggle ----------
+const hfToggle = document.getElementById("handsfree-toggle");
+hfToggle.onclick = () => {
+  if (!SR) return;
+  handsFree = !handsFree;
+  hfToggle.classList.toggle("on", handsFree);
+  if (handsFree) {
+    // Hands-free implies spoken replies, so turn voice output on too.
+    if (!speakOn) speakToggle.onclick();
+    addMsg("system", "Hands-free on. Just speak — I'll listen, reply, and keep listening.", "tool");
+    awaitingReply = false;
+    startListening();
+  } else {
+    addMsg("system", "Hands-free off.", "tool");
+    if (recog && listening) recog.stop();
+    setStatus("idle", "Ready.");
+  }
+};
+
+// ---------- input plumbing ----------
+function autosize() {
+  input.style.height = "auto";
+  input.style.height = Math.min(input.scrollHeight, 140) + "px";
+}
+input.addEventListener("input", autosize);
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+});
+document.getElementById("send").onclick = send;
+document.getElementById("reset").onclick = async () => {
+  await fetch("/reset", { method: "POST" });
+  log.innerHTML = "";
+  setStatus("idle", "Session reset.");
+};
+
+addMsg("system", "Console online. Type or speak a command to begin.", "tool");
+</script>
+</body>
+</html>
