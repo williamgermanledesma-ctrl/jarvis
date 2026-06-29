@@ -13,7 +13,10 @@ One-time model pull required:
 """
 
 import re
-import ollama
+try:
+    import ollama
+except ImportError:
+    ollama = None  # cloud mode fallback
 import chromadb
 
 EMBED_MODEL = "nomic-embed-text"
@@ -43,6 +46,8 @@ def set_project(project: str):
 
 def _embed(text: str):
     """Turn text into an embedding vector using Ollama (local)."""
+    if ollama is None:
+        raise RuntimeError("no local embedder (cloud mode)")
     resp = ollama.embeddings(model=EMBED_MODEL, prompt=text)
     return resp["embedding"]
 
@@ -52,23 +57,29 @@ def remember(fact: str):
     fact = fact.strip()
     if not fact:
         return "Nothing to remember (empty)."
-    fact_id = f"fact-{_collection.count()}"
-    _collection.add(
-        ids=[fact_id],
-        embeddings=[_embed(fact)],
-        documents=[fact],
-    )
+    try:
+        fact_id = f"fact-{_collection.count()}"
+        _collection.add(
+            ids=[fact_id],
+            embeddings=[_embed(fact)],
+            documents=[fact],
+        )
+    except Exception:
+        return "Memory needs a local embedding model (not available in cloud mode)."
     return f"Saved to memory: \"{fact}\""
 
 
 def recall(query: str, n: int = 3):
     """Find the most relevant saved facts in the active project."""
-    if _collection.count() == 0:
-        return "(memory is empty)"
-    results = _collection.query(
-        query_embeddings=[_embed(query)],
-        n_results=min(n, _collection.count()),
-    )
+    try:
+        if _collection.count() == 0:
+            return "(memory is empty)"
+        results = _collection.query(
+            query_embeddings=[_embed(query)],
+            n_results=min(n, _collection.count()),
+        )
+    except Exception:
+        return "(memory unavailable in cloud mode)"
     docs = results.get("documents", [[]])[0]
     if not docs:
         return "(no relevant memories found)"

@@ -19,7 +19,10 @@ Run with:  python server.py
 Then open: http://127.0.0.1:5000
 """
 
-import ollama
+try:
+    import ollama
+except ImportError:
+    ollama = None  # cloud mode: no local models; cloud providers used instead
 from flask import Flask, request, jsonify, render_template, Response, stream_with_context
 import json as _json
 from registry import SCHEMAS, FUNCTIONS, DESTRUCTIVE, TOOLS

@@ -14,7 +14,10 @@ searchable symbol index.
 import os
 import ast
 import re
-import ollama
+try:
+    import ollama
+except ImportError:
+    ollama = None  # cloud mode fallback
 import chromadb
 from tools import actions
 

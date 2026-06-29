@@ -1,0 +1,13 @@
+# requirements-cloud.txt
+# Slim dependency set for CLOUD deployment (Railway, etc.).
+# Excludes everything local-only: no Ollama (no local models in the cloud),
+# and no voice stack (openwakeword/tflite-runtime/torch/whisper/sounddevice),
+# which is what breaks the container build. Cloud mode uses Claude/Gemini via
+# plain HTTPS (requests), so this is all it needs.
+
+flask>=3.0.0
+werkzeug>=3.0.0       # secure_filename for uploads
+chromadb>=0.5.0       # vector memory (still used for project memory)
+requests>=2.31        # cloud providers (Claude/Gemini) over HTTPS
+pytest>=8.0.0         # used by the test-runner tool
+gunicorn>=21.0        # production WSGI server

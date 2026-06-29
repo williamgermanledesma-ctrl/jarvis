@@ -11,8 +11,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python deps first (better layer caching).
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt gunicorn
+# Use the SLIM cloud requirements — no Ollama, no voice stack (those break the
+# container build and aren't used in cloud mode).
+COPY requirements-cloud.txt .
+RUN pip install --no-cache-dir -r requirements-cloud.txt
 
 # Copy the app.
 COPY . .
