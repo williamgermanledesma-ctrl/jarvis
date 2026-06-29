@@ -24,7 +24,6 @@ ENV JARVIS_CLOUD_MODE=1
 ENV PORT=5000
 EXPOSE 5000
 
-# Launch via start.sh so the shell reliably expands $PORT (avoids the
-# "'$PORT' is not a valid port number" crash from unexpanded variables).
-RUN chmod +x start.sh
-CMD ["./start.sh"]
+# Launch gunicorn — it auto-reads gunicorn.conf.py, which binds $PORT in Python.
+# No $PORT in the command, so shell-expansion issues can't occur.
+CMD ["gunicorn", "server:app"]
