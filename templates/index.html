@@ -504,17 +504,19 @@ fetch("/mode").then(r=>r.json()).then(d=>{
   }
 });
 async function promptForKey(){
-  const which = (prompt("Which provider? Type 'claude' or 'gemini':","claude")||"").trim().toLowerCase();
-  if(which!=="claude"&&which!=="gemini") return;
-  const key = prompt(`Paste your ${which} API key (kept in memory only, never saved):`);
+  const which = (prompt("Which provider? claude, gemini, openai, openrouter, or groq:","openrouter")||"").trim().toLowerCase();
+  const valid=["claude","gemini","openai","openrouter","groq"];
+  if(!valid.includes(which)) return;
+  const hint = which==="openrouter" ? " (one key unlocks many models)" : "";
+  const key = prompt(`Paste your ${which} API key${hint} — kept in memory only, never saved:`);
   if(!key) return;
   const d=await(await fetch("/apikey",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({which,key})})).json();
-  if(d.ok){ addMsg("system",`${which} key accepted — you're ready to chat.`,"tool"); refreshProvider&&refreshProvider(); }
+  if(d.ok){ addMsg("system",`${which} key accepted — pick it in the provider dropdown to use it.`,"tool"); refreshProvider&&refreshProvider(); }
 }
 
 // -------- Provider (local / claude / gemini) --------
 const providerSel=$("provider");
-const PROV_LABEL={local:"🔒 Local",claude:"☁ Claude",gemini:"☁ Gemini"};
+const PROV_LABEL={local:"🔒 Local",claude:"☁ Claude",gemini:"☁ Gemini",openai:"☁ OpenAI",openrouter:"☁ OpenRouter",groq:"☁ Groq"};
 async function refreshProvider(){
   try{ const d=await(await fetch("/provider")).json();
     providerSel.innerHTML=Object.keys(d.available).map(p=>{ const ok=d.available[p];

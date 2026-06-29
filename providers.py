@@ -27,9 +27,31 @@ import requests
 CLAUDE_MODEL = "claude-sonnet-4-6"
 GEMINI_MODEL = "gemini-2.0-flash"   # fast, generous free tier
 
-# Runtime key overrides (for cloud "bring your own key" mode). When set, these
-# take precedence over environment variables. Held in memory only, never saved.
+# OpenAI-compatible providers: same request/response shape, different base URL,
+# key env var, and a sensible default model. Adding one entry here is enough to
+# support a whole provider (its tool/chat format matches OpenAI's).
+OPENAI_COMPATIBLE = {
+    "openai": {
+        "base": "https://api.openai.com/v1",
+        "key_env": "OPENAI_API_KEY",
+        "default_model": "gpt-4o-mini",   # cheap, capable default
+    },
+    "openrouter": {
+        "base": "https://openrouter.ai/api/v1",
+        "key_env": "OPENROUTER_API_KEY",
+        "default_model": "openai/gpt-4o-mini",  # OpenRouter routes many models
+    },
+    "groq": {
+        "base": "https://api.groq.com/openai/v1",
+        "key_env": "GROQ_API_KEY",
+        "default_model": "llama-3.3-70b-versatile",  # fast, free-tier open model
+    },
+}
+
+# Runtime key overrides (bring-your-own-key). Built to include every provider.
 _key_override = {"ANTHROPIC_API_KEY": None, "GEMINI_API_KEY": None}
+for _p in OPENAI_COMPATIBLE.values():
+    _key_override[_p["key_env"]] = None
 
 
 def set_key(which, value):
@@ -75,11 +97,14 @@ load_dotenv()
 
 def available():
     """Which providers are usable right now (based on keys present)."""
-    return {
+    avail = {
         "local": True,
         "claude": bool(_key("ANTHROPIC_API_KEY")),
         "gemini": bool(_key("GEMINI_API_KEY")),
     }
+    for name, cfg in OPENAI_COMPATIBLE.items():
+        avail[name] = bool(_key(cfg["key_env"]))
+    return avail
 
 
 def _to_text_messages(history):
@@ -354,3 +379,80 @@ def gemini_tool_turn(history, schemas):
         return {"type": "tool_use", "name": fcall.get("name"),
                 "args": fcall.get("args", {}) or {}, "text": "".join(text_parts)}
     return {"type": "text", "text": "".join(text_parts)}
+
+
+# ----------------- OpenAI-compatible providers (OpenAI / OpenRouter / Groq) -----------------
+# These three share the OpenAI chat-completions format, so one implementation
+# serves all of them — only the base URL, key, and default model differ.
+
+def _openai_messages(history):
+    """Convert our history into OpenAI chat format (system/user/assistant/tool)."""
+    msgs = []
+    for m in history:
+        role = m.get("role")
+        content = m.get("content") or ""
+        if role == "system":
+            msgs.append({"role": "system", "content": content})
+        elif role == "user":
+            msgs.append({"role": "user", "content": content})
+        elif role == "assistant" and content:
+            msgs.append({"role": "assistant", "content": content})
+        elif role == "tool":
+            # Fold tool results in as context (simple, robust across providers).
+            msgs.append({"role": "user", "content": f"[tool result] {content}"})
+    return msgs
+
+
+def openai_compatible_chat(provider, history, stream=False, model=None):
+    """Chat with an OpenAI-compatible provider. Yields chunks if stream=True."""
+    cfg = OPENAI_COMPATIBLE.get(provider)
+    if not cfg:
+        return _err(f"Unknown provider '{provider}'.", stream)
+    key = _key(cfg["key_env"])
+    if not key:
+        return _err(f"{provider} not configured. Set {cfg['key_env']}.", stream)
+    body = {
+        "model": model or cfg["default_model"],
+        "messages": _openai_messages(history),
+        "stream": stream,
+    }
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    # OpenRouter likes these optional attribution headers.
+    if provider == "openrouter":
+        headers["HTTP-Referer"] = "https://github.com/jarvis"
+        headers["X-Title"] = "Jarvis"
+    url = f"{cfg['base']}/chat/completions"
+    if not stream:
+        try:
+            r = requests.post(url, headers=headers, json=body, timeout=120)
+        except Exception as e:
+            return f"{provider} request failed: {e}"
+        if r.status_code != 200:
+            return f"{provider} error {r.status_code}: {r.text[:200]}"
+        try:
+            return r.json()["choices"][0]["message"]["content"]
+        except Exception:
+            return f"{provider} returned no usable text."
+    return _openai_stream(url, headers, body, provider)
+
+
+def _openai_stream(url, headers, body, provider):
+    try:
+        with requests.post(url, headers=headers, json=body, stream=True, timeout=120) as r:
+            if r.status_code != 200:
+                yield f"[{provider} error {r.status_code}: {r.text[:160]}]"
+                return
+            for line in r.iter_lines():
+                if not line or not line.startswith(b"data: "):
+                    continue
+                chunk = line[6:]
+                if chunk.strip() == b"[DONE]":
+                    break
+                try:
+                    delta = json.loads(chunk)["choices"][0].get("delta", {})
+                    if delta.get("content"):
+                        yield delta["content"]
+                except Exception:
+                    continue
+    except Exception as e:
+        yield f"[{provider} stream failed: {e}]"

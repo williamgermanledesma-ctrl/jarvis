@@ -500,9 +500,16 @@ def chat():
     except Exception:
         pass  # memory is optional; never block a turn on it
 
-    # Cloud providers now both run the agentic tool loop.
+    # Cloud providers (Claude/Gemini) run the agentic tool loop.
     if PROVIDER in ("claude", "gemini"):
         return _run_cloud_loop(PROVIDER)
+
+    # OpenAI-compatible providers (OpenAI / OpenRouter / Groq): text answer.
+    if PROVIDER in providers.OPENAI_COMPATIBLE:
+        txt = providers.openai_compatible_chat(PROVIDER, HISTORY, stream=False)
+        HISTORY.append({"role": "assistant", "content": txt})
+        _trim_history(); conversations.save(CONV_ID, HISTORY)
+        return jsonify({"reply": txt, "model": PROVIDER})
 
     # Decide which model handles this turn. Vision turns answer directly;
     # text turns run the autonomous tool loop.
@@ -588,6 +595,22 @@ def chat_stream():
             HISTORY.append({"role": "assistant", "content": txt})
             _trim_history(); conversations.save(CONV_ID, HISTORY)
             yield _sse("done", {"reply": txt, "ran": ran, "model": PROVIDER})
+            return
+
+        # OpenAI-compatible providers (OpenAI / OpenRouter / Groq): stream text.
+        if PROVIDER in providers.OPENAI_COMPATIBLE:
+            yield _sse("model", {"model": PROVIDER, "cloud": True})
+            full = ""
+            try:
+                for tok in providers.openai_compatible_chat(PROVIDER, HISTORY, stream=True):
+                    if tok:
+                        full += tok
+                        yield _sse("token", {"t": tok})
+            except Exception as e:
+                yield _sse("token", {"t": f"\n[{PROVIDER} error: {e}]"})
+            HISTORY.append({"role": "assistant", "content": full})
+            _trim_history(); conversations.save(CONV_ID, HISTORY)
+            yield _sse("done", {"reply": full, "model": PROVIDER})
             return
 
         # Vision turns: stream the vision model's answer directly.
@@ -772,6 +795,8 @@ def apikey_route():
     which = d.get("which")
     value = d.get("key", "")
     mapping = {"claude": "ANTHROPIC_API_KEY", "gemini": "GEMINI_API_KEY"}
+    for _name, _cfg in providers.OPENAI_COMPATIBLE.items():
+        mapping[_name] = _cfg["key_env"]
     if which not in mapping:
         return jsonify({"error": "which must be 'claude' or 'gemini'"}), 400
     providers.set_key(mapping[which], value)

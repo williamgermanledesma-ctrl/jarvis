@@ -135,6 +135,14 @@ allow it (System Settings → Privacy & Security → Microphone).
 `python main.py` runs the Phase 1 command-line version.
 
 ## Advanced (latest additions)
+- **More providers**: alongside Local, Claude, and Gemini, Jarvis now supports
+  three OpenAI-compatible cloud providers — **OpenAI** (GPT), **OpenRouter** (one
+  key routes dozens of models: GPT, Claude, Llama, Mistral, DeepSeek, and more),
+  and **Groq** (fast, free-tier open models). Each uses bring-your-own-key: set
+  the key (`OPENAI_API_KEY`, `OPENROUTER_API_KEY`, or `GROQ_API_KEY`) via `.env`
+  locally or the key prompt in cloud mode, then pick it from the provider
+  dropdown. Sensible default models are built in. OpenRouter is the highest-value
+  pick — one integration, a huge model menu.
 - **Ephemeral deployment testing** (`deploy_test`, needs Docker): instead of
   just checking syntax, Jarvis can copy the project into a throwaway container,
   apply init steps (e.g. rename `.env.example` → `.env`), install deps, start the
@@ -346,4 +354,3 @@ before approving. These layers just catch the obvious-bad cases automatically.
 `run_shell_command` can run any command the model proposes. The approval gate is
 your protection — read each command before clicking Approve, and don't approve
 reflexively. The wake-word listener auto-denies these by design.
-# jarvis
