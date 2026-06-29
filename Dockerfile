@@ -24,6 +24,7 @@ ENV JARVIS_CLOUD_MODE=1
 ENV PORT=5000
 EXPOSE 5000
 
-# Gunicorn for production (not Flask's dev server). One worker keeps the
-# in-memory state coherent for now; see DEPLOY.md re: multi-user scaling.
-CMD gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 4 --timeout 180 server:app
+# Launch via start.sh so the shell reliably expands $PORT (avoids the
+# "'$PORT' is not a valid port number" crash from unexpanded variables).
+RUN chmod +x start.sh
+CMD ["./start.sh"]
